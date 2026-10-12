@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PalmPay - Biometric Payment Terminal</title>
+  <link rel="stylesheet" href="/static/style.css?v=7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Razorpay Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Nav -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.2" fill="none">
+            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+            <line x1="2" y1="10" x2="22" y2="10"></line>
+          </svg>
+        </div>
+        <span class="brand-title">WavePay</span>
+      </div>
+
+      <!-- POS Checkout Mode Toggle Switch -->
+      <div class="pos-mode-toggle">
+        <button id="modeAuto" class="mode-btn active" onclick="setCheckoutMode('auto')">⚡ 1-Touch Auto-Debit</button>
+        <button id="modeModal" class="mode-btn" onclick="setCheckoutMode('modal')">💳 Razorpay Modal</button>
+      </div>
+
+      <div class="nav-tabs">
+        <button id="tabTerminal" class="tab-btn active" onclick="switchTab('terminal')">Payment Terminal</button>
+        <button id="tabEnroll" class="tab-btn" onclick="switchTab('enroll')">Enroll Customer</button>
+      </div>
+    </header>
+
+    <!-- Main Content Area with Split Layout (Terminal & Live Camera Viewfinder) -->
+    <div class="main-grid">
+      <!-- LEFT COLUMN: Main Interaction View -->
+      <main class="content-view">
+        <!-- ==================== TAB 1: TERMINAL ==================== -->
+        <section id="viewTerminal" class="tab-content active">
+          <!-- SCREEN 1: WAITING / IDLE -->
+          <div id="screenWaiting" class="card terminal-card">
+            <div class="scanner-visual">
+              <div class="pulse-ring"></div>
+              <div class="pulse-ring delay"></div>
+              <div class="scanner-icon">
+                <svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5"></path>
+                  <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+                  <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+                  <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+                </svg>
+              </div>
+            </div>
+            <h2 class="title">PRESENT PALM TO PAY</h2>
+            <p class="subtitle">Hold your palm flat 5-10 cm above optical sensor to authorize</p>
+            <div class="status-pill waiting">
+              <span class="pill-dot blink"></span> READY FOR PALM SCAN
+            </div>
+            <div class="simulation-bar">
+              <button class="btn btn-secondary btn-sm" onclick="triggerManualTestScan()">Manual Scan Test</button>
+            </div>
+          </div>
+
+          <!-- SCREEN 2: SCANNING IN PROGRESS -->
+          <div id="screenScanning" class="card terminal-card hidden">
+            <div class="loader-spinner"></div>
+            <h2 class="title">VERIFYING BIOMETRICS...</h2>
+            <p class="subtitle">Processing palm crease template against customer registry</p>
+            <div class="status-pill scanning">
+              <span class="pill-dot blink"></span> MATCHING TEMPLATE
+            </div>
+          </div>
+
+          <!-- SCREEN 3: IDENTITY VERIFIED / PAYMENT AMOUNT -->
+          <div id="screenVerified" class="card terminal-card hidden">
+            <div class="verified-header">
+              <div class="check-icon">✓</div>
+              <div>
+                <h2 class="title" id="verifiedUserName">Aniketh Galla</h2>
+                <p class="subtitle" id="verifiedUserId">Customer ID: USR001</p>
+              </div>
+              <div class="confidence-tag" id="verifiedConfidence">94.2% Match</div>
+            </div>
+
+            <div id="autoDebitBanner" class="auto-banner">
+              <span class="banner-dot blink"></span> ⚡ 1-Touch Auto-Debit active (Settling in 1s...)
+            </div>
+
+            <div class="payment-form">
+              <label for="payAmount" class="form-label">TOTAL AMOUNT DUE (INR)</label>
+              <div class="amount-input-group">
+                <span class="currency-symbol">₹</span>
+                <input type="number" id="payAmount" class="amount-field" value="100" min="1" max="100000" step="1">
+              </div>
+
+              <div class="quick-amounts">
+                <button type="button" class="btn-chip" onclick="setAmount(50)">₹50</button>
+                <button type="button" class="btn-chip" onclick="setAmount(100)">₹100</button>
+                <button type="button" class="btn-chip" onclick="setAmount(250)">₹250</button>
+                <button type="button" class="btn-chip" onclick="setAmount(500)">₹500</button>
+              </div>
+
+              <div class="payment-action-buttons">
+                <button id="btnAutoPay" class="btn btn-primary btn-lg" onclick="executeAutoDebit()">
+                  ⚡ 1-Touch Instant Auto-Debit
+                </button>
+                <button id="btnModalPay" class="btn btn-secondary btn-lg" style="margin-top: 0.6rem;" onclick="executeRazorpayModal()">
+                  💳 Open Razorpay Checkout Modal
+                </button>
+              </div>
+              <button class="btn btn-text" onclick="resetTerminal()">Cancel / Clear</button>
+            </div>
+          </div>
+
+          <!-- SCREEN 4: PAYMENT SUCCESS -->
+          <div id="screenSuccess" class="card terminal-card hidden">
+            <div class="success-banner">
+              <div class="success-icon">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <h2 class="title">TRANSACTION APPROVED</h2>
+              <p class="subtitle">Biometric payment authorized and logged</p>
+            </div>
+
+            <div class="receipt-card">
+              <div class="receipt-row">
+                <span>Total Paid:</span>
+                <strong id="receiptAmount" class="highlight-amt">₹100.00</strong>
+              </div>
+              <div class="receipt-row">
+                <span>Customer:</span>
+                <span id="receiptUser">Aniketh Galla (USR001)</span>
+              </div>
+              <div class="receipt-row">
+                <span>Payment Ref:</span>
+                <code id="receiptPaymentId">pay_mock_123456</code>
+              </div>
+              <div class="receipt-row">
+                <span>Order No:</span>
+                <code id="receiptOrderId">order_mock_789</code>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="resetTerminal()">Next Customer</button>
+          </div>
+
+          <!-- SCREEN 5: ERROR / NO MATCH -->
+          <div id="screenError" class="card terminal-card hidden">
+            <div class="error-icon">✕</div>
+            <h2 class="title" id="errorTitle">PALM NOT RECOGNIZED</h2>
+            <p class="subtitle" id="errorMessage">No registered customer matching this palm was found.</p>
+            <div class="action-buttons">
+              <button class="btn btn-secondary" onclick="resetTerminal()">Try Again</button>
+              <button class="btn btn-primary" onclick="switchTab('enroll')">Enroll Customer</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== TAB 2: ENROLLMENT ==================== -->
+        <section id="viewEnroll" class="tab-content hidden" style="display: none;">
+          <div class="card enroll-card">
+            <h2 class="title">Enroll New Customer</h2>
+            <p class="subtitle">Enter customer details below, then place palm over the ESP32-CAM to capture the reference template automatically!</p>
+
+            <form id="enrollForm" onsubmit="handleLiveEnrollment(event)">
+              <div class="form-group">
+                <label for="enrollUserId" class="form-label">User ID</label>
+                <input type="text" id="enrollUserId" class="form-control" placeholder="e.g. USR001" required>
+              </div>
+
+              <div class="form-group">
+                <label for="enrollName" class="form-label">Customer Name</label>
+                <input type="text" id="enrollName" class="form-control" placeholder="e.g. Aniketh Galla" required>
+              </div>
+
+              <div class="form-group">
+                <label for="enrollEmail" class="form-label">Email Address (Optional)</label>
+                <input type="email" id="enrollEmail" class="form-control" placeholder="e.g. aniketh@example.com">
+              </div>
+
+              <button type="submit" id="btnLiveEnroll" class="btn btn-primary btn-lg">
+                🖐️ Start Hardware Scan to Enroll
+              </button>
+            </form>
+
+            <!-- Live Enrollment Waiting State -->
+            <div id="enrollWaitingState" class="alert-box waiting-box hidden">
+              <div class="loader-spinner small"></div>
+              <div>
+                <strong>Ready for Scan!</strong>
+                <p>Place your palm over the ESP32-CAM right now. The first photo captured will be saved as your reference biometric template.</p>
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="cancelLiveEnrollment()">Cancel</button>
+            </div>
+
+            <div id="enrollResult" class="alert-box hidden"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- RIGHT COLUMN: ESP32-CAM LIVE VIEWFINDER FEED -->
+      <aside class="viewfinder-sidebar">
+        <div class="card viewfinder-card">
+          <div class="viewfinder-header">
+            <span class="live-tag"><span class="rec-dot"></span> LIVE FEED</span>
+            <span class="res-tag">RGB565 320x240</span>
+          </div>
+
+          <div class="video-container">
+            <img id="viewfinderFeed" src="/api/biometric/latest-frame" alt="ESP32 Live Feed" class="camera-image">
+            <div class="camera-overlay">
+              <div class="target-box"></div>
+              <span class="overlay-text">Align Palm in Box</span>
+            </div>
+          </div>
+
+          <div class="viewfinder-footer">
+            <div class="metric-row">
+              <span>Decoder Speed:</span>
+              <strong class="metric-val">&lt; 2.1 ms</strong>
+            </div>
+            <div class="metric-row">
+              <span>Last Frame Status:</span>
+              <strong id="frameStatusLabel" class="metric-val status-ok">Connected</strong>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Made By Aniketh Galla</span>
+    </footer>
+  </div>
+
+  <script src="/static/app.js?v=7"></script>
+</body>
+</html>

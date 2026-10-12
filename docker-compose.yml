@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  palm-gateway:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: palm_payment_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - BACKEND_URL=http://localhost:8000
+      - DEVICE_API_KEY=esp32_palm_auth_secret_key_2026
+      - DATABASE_URL=sqlite:///./data/palm_biometric.db
+      - MATCH_THRESHOLD=0.85
+      - MAX_IMAGE_SIZE_MB=2
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-rzp_test_mock_key_id}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-rzp_test_mock_secret_key}
+      - DEBUG=true
+      - STORE_DEBUG_IMAGES=false
+    volumes:
+      - ./backend/data:/app/backend/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
